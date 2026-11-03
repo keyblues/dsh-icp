@@ -1,0 +1,65 @@
+{
+  "name": "@local/dsh-icp",
+  "version": "1.1.1",
+  "private": true,
+  "description": "DeepSeek Harness (DSH) bundle: native 工信部 ICP 备案查询 — a Node reimplementation of the MIIT filing query flow (auth token + slider captcha solved locally, queryByCondition + APP detail), with no MCP server, external service, or API key. Ships official-style conversation cards for its tools. DSH 插件：原生 ICP 备案查询（网站/APP/小程序/快应用及违法违规黑名单），工具调用以官方样式卡片呈现。",
+  "keywords": [
+    "dsh",
+    "dsh-plugin",
+    "deepseek-harness",
+    "icp",
+    "miit",
+    "beian",
+    "icp-filing",
+    "website-filing",
+    "app-filing",
+    "blacklist",
+    "备案查询",
+    "ICP备案",
+    "工信部"
+  ],
+  "license": "MIT",
+  "author": "keyblues",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/keyblues/dsh-icp.git"
+  },
+  "homepage": "https://github.com/keyblues/dsh-icp#readme",
+  "bugs": {
+    "url": "https://github.com/keyblues/dsh-icp/issues"
+  },
+  "type": "module",
+  "engines": {
+    "node": ">=20",
+    "dsh": ">=0.2.1-rc.3 <0.3.0-0"
+  },
+  "exports": {
+    ".": "./index.js",
+    "./client": "./client.js",
+    "./locale/*.json": "./locale/*.json",
+    "./icon": "./icon.svg"
+  },
+  "files": [
+    "index.js",
+    "client.js",
+    "lib/**/*.js",
+    "cordis.patch.yml",
+    "locale/*.json",
+    "icon.svg",
+    "test/**/*.mjs",
+    "README.md"
+  ],
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "platform": "web",
+      "immediately": true,
+      "inject": [
+        "@deepseek-ai/dsh-client-locale",
+        "@deepseek-ai/dsh-client-ui-tool"
+      ]
+    }
+  }
+}

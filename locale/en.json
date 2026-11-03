@@ -1,0 +1,6 @@
+{
+  "meta": {
+    "title": "ICP Filing Lookup (Native)",
+    "description": "Queries MIIT ICP filing records straight from Node — it fetches the access token and solves the slider captcha locally, with no MCP server, external service, or API key. Registers icp_query and icp_query_types for websites, apps, mini programs, and quick apps, plus the four violation blacklists."
+  }
+}
