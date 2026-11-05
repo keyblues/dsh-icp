@@ -1,5 +1,5 @@
 /**
- * dsh-icp — DSH Client half.
+ * dsh-icp-query — DSH Client half.
  *
  * Declares the conversation card for the bundle's two wire tools (`icp_query`
  * and `icp_query_types`) by registering keyed views into the shipped
@@ -14,7 +14,7 @@
  * plain model-facing text inside the shipped I/O panel.
  */
 window.__ModuleLoader__.load({
-  id: '@local/dsh-icp',
+  id: 'dsh-icp-query',
   factory(require) {
     const React = require('react');
     const h = React.createElement;
@@ -756,7 +756,7 @@ window.__ModuleLoader__.load({
       }
       ctx.effect(() => {
         const tag = document.createElement('style');
-        tag.dataset.plugin = '@local/dsh-icp';
+        tag.dataset.plugin = 'dsh-icp-query';
         tag.textContent = CSS;
         document.head.appendChild(tag);
         return () => {

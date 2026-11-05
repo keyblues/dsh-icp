@@ -1,21 +1,19 @@
 /**
- * dsh-icp — native MIIT ICP filing query (工信部 ICP 备案查询) for DSH.
+ * dsh-icp — MIIT ICP filing lookup (工信部 ICP 备案查询) for DeepSeek Harness.
  *
- * Registers two model-facing tools that talk straight to the MIIT project
- * query service (`https://hlwicpfwc.miit.gov.cn/icpproject_query/api`):
+ * Registers two model-facing tools that query the official MIIT project query
+ * service (`https://hlwicpfwc.miit.gov.cn/icpproject_query/api`):
  *
- *   - `icp_query`       — query one of the eight filing types, with pagination
- *                         for the four normal types and the locally solved
- *                         slider captcha handled transparently.
- *   - `icp_query_types` — list the supported types, their search fields and
- *                         the effective plugin configuration.
+ *   - `icp_query`       — one of the eight filing types, with pagination for
+ *                         the four regular types and the slider captcha solved
+ *                         locally.
+ *   - `icp_query_types` — supported types, their search fields and the
+ *                         effective plugin configuration.
  *
- * This is a native implementation of the flow in HG-ha/ICP_Query: no MCP
- * server, no external relay, no API key. The network work lives in
- * `lib/miit.js`, the captcha image work in `lib/png.js` + `lib/slider.js`.
- *
- * Configuration comes from the bundle's `cordis.patch.yml` row and is
- * normalized here, so the plugin has no runtime dependencies at all.
+ * The network work lives in `lib/miit.js`; the captcha image work lives in
+ * `lib/png.js` and `lib/slider.js`. Configuration comes from the bundle's
+ * `cordis.patch.yml` row and is normalized here, so the plugin has no runtime
+ * dependencies.
  *
  * @module dsh-icp
  */
@@ -213,7 +211,7 @@ function typesSnapshot(config) {
     count: types.length,
     types,
     endpoint: ICP_ENDPOINT,
-    note: '官方接口无 API Key；滑块验证码会话在有效期内复用，仅会话过期后的首次查询需要解滑块（约 1 秒，其后约 0.2–0.4 秒）。受创宇盾反爬与访问频率限制，请勿并发或高频调用。',
+    note: '直连工信部官方接口，无需 API Key。官方限制访问频率，请勿并发或高频调用。',
     config: {
       captcha_max_attempts: config.captchaMaxAttempts,
       timeout_ms: config.timeoutMs,
@@ -304,9 +302,8 @@ function buildTools(config) {
   const queryTool = {
     name: 'icp_query',
     description:
-      '查询工信部 ICP 备案（网站 / APP / 小程序 / 快应用及四类违规黑名单）。' +
-      'type 取 web、app、mapp、kapp（可分页）或 bweb、bapp、bmapp、bkapp（黑名单，不分页）；' +
-      'search 填域名、单位名称、备案号或应用名。验证码会话在有效期内复用，请勿并发调用。page_num 上限 10000，page_size 受 maxPageSize 限制。',
+      '查询工信部 ICP 备案。支持网站、APP、小程序、快应用四类备案，以及对应的四类违法违规黑名单；' +
+      '返回备案主体、备案号、审核时间与应用详情等记录。',
     parameters: {
       type: 'object',
       additionalProperties: false,
@@ -318,15 +315,15 @@ function buildTools(config) {
         },
         search: {
           type: 'string',
-          description: '域名、单位名称、备案号或应用名。',
+          description: '域名、主办单位名称、备案号或应用名称。',
         },
         page_num: {
           type: 'integer',
-          description: '页码，从 1 开始，上限 10000；黑名单忽略。',
+          description: '页码，从 1 开始，最大 10000；黑名单类型忽略。',
         },
         page_size: {
           type: 'integer',
-          description: '每页条数，默认 10，上限 max_page_size（官方 26）；黑名单忽略。',
+          description: '每页条数，默认 10，上限为插件配置的 maxPageSize（默认 10，最大 26）；黑名单类型忽略。',
         },
       },
       required: ['type', 'search'],
@@ -402,7 +399,7 @@ function buildTools(config) {
 
   const typesTool = {
     name: 'icp_query_types',
-    description: '列出 ICP 查询的 8 种类型、search 填写方式与当前配置。',
+    description: '列出 ICP 备案查询支持的类型、各类型 search 可填内容与当前生效配置；不确定该用哪种类型时先调用本工具。',
     parameters: {
       type: 'object',
       additionalProperties: false,

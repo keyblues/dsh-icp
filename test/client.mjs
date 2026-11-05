@@ -114,7 +114,7 @@ runInNewContext(source, {
   navigator: { language: 'zh-CN' },
 });
 
-check('client module registers itself', loaded !== null && loaded.id === '@local/dsh-icp');
+check('client module registers itself', loaded !== null && loaded.id === 'dsh-icp-query');
 const plugin = loaded === null ? null : loaded.factory((name) => {
   if (name === 'react') return ReactStub;
   throw new Error(`unexpected module: ${name}`);

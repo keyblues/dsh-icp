@@ -55,8 +55,9 @@ check(
   String(queryTool?.parameters?.properties?.page_num?.description ?? '').includes('10000'),
 );
 check(
-  'page_size documents the config cap',
-  /max_page_size|maxPageSize/.test(String(queryTool?.parameters?.properties?.page_size?.description ?? '')),
+  'page_size documents the maxPageSize cap',
+  /maxPageSize/.test(String(queryTool?.parameters?.properties?.page_size?.description ?? '')) &&
+    String(queryTool?.parameters?.properties?.page_size?.description ?? '').includes('26'),
 );
 
 const types = await typesTool.execute({}, { signal: new AbortController().signal });
@@ -64,8 +65,11 @@ check('types count is 8', types.count === 8, String(types.count));
 const typesText = typesTool.output.render({}, types)[0].text;
 check('types text lists every type', types.types.every((item) => typesText.includes(item.type)));
 check('types text shows effective config', typesText.includes('当前生效配置') && typesText.includes('验证码最多尝试'));
-check('types note explains captcha reuse', typeof types.note === 'string' && types.note.includes('复用'));
-check('query description mentions session reuse', String(queryTool.description).includes('会话'));
+check('types note states no API key', typeof types.note === 'string' && types.note.includes('API Key'));
+check(
+  'query description names the filing types',
+  ['网站', 'APP', '小程序', '快应用', '黑名单'].every((word) => String(queryTool.description).includes(word)),
+);
 check('query description stays short', String(queryTool.description).length < 400, `${String(queryTool.description).length} chars`);
 
 for (const [args, expected] of [

@@ -2,6 +2,8 @@
 
 本文档记录 2026-11-02 的一轮代码审查、稳定性测试与实网验证；所有脚本都在仓库 `test/` 下，可直接用 Node 运行、不依赖 DSH。
 
+> **2026-11-04（2.0.0）公开化整理**：包身份由 `@local/dsh-icp` 改为 npm 包名 `dsh-icp-query`（bundle 行 id 仍为 `dsh-icp`），插件标题/描述、工具描述与 README 重写为公开项目文案，工具名保持不变。下面的 2026-11-02 记录保留原貌；本轮重新安装与复验结果见文末「2.0.0 复验」。
+
 ## 代码审查与稳定性
 
 2026-11-02 做了一轮完整代码审查 + 稳定性测试：静态审查 + 独立只读审查 + 独立动态复核 + 自带故障注入套件。
@@ -115,3 +117,34 @@
 - **实网验证遇到拦截即停止**：审查轮实网探测在第 7 次调用（关键词含 `<script>` 片段）被创宇盾拦截后按约定立即停止，因此 `bapp` / `bmapp` / `bkapp` 本轮未重跑（1.0.0 首轮已实网通过）；被拦截后建议冷却数分钟再查。
 - `includeDetails=false`、`page_size` 截断、401 重试、超时与 abort 路径均有离线故障注入覆盖，部分未逐项做实网调用（避免触发官方风控）。
 - 插件页标题/描述/图标以文件与安装清单为准，未做浏览器截图逐像素核对。
+
+## 2.0.0 复验
+
+2026-11-04 公开化整理后重新安装并复验。本轮只改了包身份与文案（包名、locale 标题/描述、工具描述、README、注释），未改查询逻辑。最终身份：npm 包名 / 模块名 `dsh-icp-query`，bundle 行 id 仍为 `dsh-icp`。
+
+| 项 | 结果 |
+|---|---|
+| 卸载旧包 | 先移除 `@local/dsh-icp`（1.1.1），再移除过渡安装的 `dsh-icp`（2.0.0）；两次均 `application: applied`，profile 依赖与 bundle 列表中的旧身份移除 |
+| 安装新包 | 当前仓库目录以 link 方式安装：profile 依赖 `"dsh-icp-query": "link:C:/Users/root/Desktop/project/dsh-icp"`，`version: 2.0.0`，`application: applied`，安装结果 `warnings: []`（pnpm 日志仅一条 peer-dependency WARN）；旧 `node_modules/dsh-icp` 残留 junction 已清理 |
+| 安装清单 | `dsh-icp-query` 2.0.0，description 为公开版；`locale/zh.json` 标题「ICP 备案查询」、`locale/en.json` 标题「ICP Filing Lookup」；`Config.listConfigs` 中 entry `include:dsh-icp` 映射到模块 `dsh-icp-query` |
+| Host 工具 | `Tool.listTools` 确认两个工具已用新描述注册；`icp_query_types` 返回 8 类、接口基地址、新 note（无需 API Key / 请勿高频）与当前生效配置 |
+| 实查 | `icp_query`（web / `baidu.com`、`page_size=3`）：1 条记录，667 ms，字段与分页渲染正常 |
+| 离线测试 | `test/contract.mjs` 全部通过；`test/client.mjs` 全部通过；`test/stability.mjs` 27/27 |
+| 工具卡片 | Client 半（`client.js`，模块 id `dsh-icp-query`）随页面启动加载，需**刷新一次页面**后可见；本轮未做浏览器截图核对 |
+
+> 限制同上节：工具卡片的实际视觉渲染需在浏览器刷新后目视确认；公开化整理未改卡片结构与样式。
+
+## npm 发布验证
+
+2026-11-05 核对 npm 上的首个发布：
+
+| 项 | 结果 |
+|---|---|
+| registry | `dsh-icp-query@2.0.0` 已发布，`latest=2.0.0`，maintainer `keyblue`，发布时间 2026-11-05T01:59:43Z |
+| tarball | 含 `index.js`、`client.js`、`lib/**`、`locale/*.json`、`icon.svg`、`cordis.patch.yml`、`test/**`、`LICENSE`、`README.md`；无 `private` |
+| 身份 | tarball 内 `client.js` 模块 id 与 `cordis.patch.yml` 行 name 均为 `dsh-icp-query`；行 id 仍为 `dsh-icp` |
+| 发现 | registry 的 description 截断到 255 字符（本地 294 字符）；npm 页面 README 为发布时版本（仍写“尚未发布到 npm”） |
+| 流程问题 | 2.0.0 是 2026-11-05T01:58:23Z 在本机终端手动执行 `npm publish --access public` 发布的，当时仓库未提交/未打 tag，也未确认发版；此后改为 tag 触发 CI，未确认前不发布、不打 tag |
+| 修正 | 已加 `.github/workflows/publish.yml`（`v*` tag → Trusted Publishing / provenance → GitHub Release + `.tgz`）；2.0.1 的 description 缩到 181 字符、README 增加 npm 安装段与 npm 徽章，待确认发版后走 tag 发布 |
+
+> 后续发布只走：`git push` 更新 main → 确认发版 → `git tag vX.Y.Z && git push origin vX.Y.Z`；workflow 会校验 tag 与 package.json 一致并发布 npm。2.0.1 尚未发布，2.0.0 已占用（npm 已发布的版本号不能复用）。

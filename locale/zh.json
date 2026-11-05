@@ -1,6 +1,6 @@
 {
   "meta": {
-    "title": "ICP 备案查询（原生）",
-    "description": "在 Node 内原生直连工信部 ICP 备案接口（自动获取访问令牌、本地识别滑块验证码），无需 MCP 服务、外部服务或 API Key。提供 icp_query 与 icp_query_types 工具，可查网站、APP、小程序、快应用的备案主体与备案号，以及四类违法违规黑名单。"
+    "title": "ICP 备案查询",
+    "description": "查询工信部 ICP 备案：网站、APP、小程序、快应用的备案主体与备案号，以及四类违法违规黑名单。直连官方接口实时查询，无需 API Key 或外部服务。"
   }
 }
