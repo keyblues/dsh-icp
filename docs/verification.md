@@ -134,17 +134,19 @@
 
 > 限制同上节：工具卡片的实际视觉渲染需在浏览器刷新后目视确认；公开化整理未改卡片结构与样式。
 
-## npm 发布验证
+## npm 发布验证（2.0.0 → 2.0.1）
 
-2026-11-05 核对 npm 上的首个发布：
+2026-11-05 核对 npm 发布与 tag 联动：
 
 | 项 | 结果 |
 |---|---|
-| registry | `dsh-icp-query@2.0.0` 已发布，`latest=2.0.0`，maintainer `keyblue`，发布时间 2026-11-05T01:59:43Z |
+| registry | `dsh-icp-query@2.0.0` 已发布（manual）；`dsh-icp-query@2.0.1` 由 tag 触发的 CI 发布，`latest=2.0.1`，maintainer `keyblue` |
 | tarball | 含 `index.js`、`client.js`、`lib/**`、`locale/*.json`、`icon.svg`、`cordis.patch.yml`、`test/**`、`LICENSE`、`README.md`；无 `private` |
 | 身份 | tarball 内 `client.js` 模块 id 与 `cordis.patch.yml` 行 name 均为 `dsh-icp-query`；行 id 仍为 `dsh-icp` |
-| 发现 | registry 的 description 截断到 255 字符（本地 294 字符）；npm 页面 README 为发布时版本（仍写“尚未发布到 npm”） |
+| 发现 | 2.0.0 的 registry description 截断到 255 字符（本地 294 字符）；npm 页面 README 为发布时版本（仍写“尚未发布到 npm”） |
 | 流程问题 | 2.0.0 是 2026-11-05T01:58:23Z 在本机终端手动执行 `npm publish --access public` 发布的，当时仓库未提交/未打 tag，也未确认发版；此后改为 tag 触发 CI，未确认前不发布、不打 tag |
-| 修正 | 已加 `.github/workflows/publish.yml`（`v*` tag → Trusted Publishing / provenance → GitHub Release + `.tgz`）；2.0.1 的 description 缩到 181 字符、README 增加 npm 安装段与 npm 徽章，待确认发版后走 tag 发布 |
+| Trusted Publisher | 首次 tag 运行因未配置 npm Trusted Publisher 在 publish 步骤失败（registry 404）；通过 `npm trust github dsh-icp-query --repo keyblues/dsh-icp --file publish.yml --allow-publish` 配置后重跑成功 |
+| 2.0.1 发布 | tag `v2.0.1` → workflow attempt 2 success；npm `latest=2.0.1`（provenance）；GitHub Release `v2.0.1` 附 `dsh-icp-query-2.0.1.tgz` |
+| 修正 | description 缩到 181 字符；README 增加 npm 安装段与 npm 徽章；2.0.0 仍占用且不能复用版本号 |
 
-> 后续发布只走：`git push` 更新 main → 确认发版 → `git tag vX.Y.Z && git push origin vX.Y.Z`；workflow 会校验 tag 与 package.json 一致并发布 npm。2.0.1 尚未发布，2.0.0 已占用（npm 已发布的版本号不能复用）。
+> 后续发布：更新 `package.json` 版本 → 提交/推送 main → 确认发版 → 推 `vX.Y.Z` tag；`.github/workflows/publish.yml` 会校验 tag 与版本一致、跑测试、经 Trusted Publishing 发布 npm，并创建 GitHub Release。2.0.1 已发布，2.0.0 已占用（npm 已发布的版本号不能复用）。
