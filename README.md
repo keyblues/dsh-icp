@@ -33,18 +33,23 @@
 
 ### 从 npm 安装（推荐）
 
-已发布到 npm：[`dsh-icp-query`](https://www.npmjs.com/package/dsh-icp-query)。
+1. 打开 DSH Desktop 侧边栏「插件」页；
+2. 点右上角「添加插件」→「安装第三方插件」；
+3. 在「包名或地址」里填 npm 包名：
 
-```text
-plugin_manager(action: "install_bundle", target: "dsh-icp-query")
-```
+   ```text
+   dsh-icp-query
+   ```
+
+4. 安装完成后 `icp_query` / `icp_query_types` 自动注册。
 
 ### 从 GitHub 安装
 
-打开 DSH 侧边栏「插件」页，依次点「添加插件」→「安装第三方插件」，在「包名或地址」填 `https://github.com/keyblues/dsh-icp`；安装完成后 `icp_query` / `icp_query_types` 自动注册。也可以让 Agent 代劳：
+同样在「包名或地址」里填仓库地址，以下两种写法都可以：
 
 ```text
-plugin_manager(action: "install_bundle", target: "github:keyblues/dsh-icp")
+https://github.com/keyblues/dsh-icp
+github:keyblues/dsh-icp
 ```
 
 ### 本地 clone / 离线安装
@@ -53,11 +58,7 @@ plugin_manager(action: "install_bundle", target: "github:keyblues/dsh-icp")
 git clone https://github.com/keyblues/dsh-icp.git
 ```
 
-然后用绝对路径安装本地目录（`link:` 方式，不打包、不下载）：
-
-```text
-plugin_manager(action: "install_bundle", target: "<clone 目录的绝对路径>")
-```
+然后在「包名或地址」里填 clone 目录的绝对路径；DSH 以 `link:` 方式安装本地目录，不打包、不下载。
 
 `git pull` 会更新代码，但已加载的 Host 模块需要重新加载。
 
@@ -66,7 +67,7 @@ plugin_manager(action: "install_bundle", target: "<clone 目录的绝对路径>"
 - bundle 行 id 为 `dsh-icp`；npm 包名、Host 模块名与 Client 模块 id 为 `dsh-icp-query`；版本 `2.0.1`。
 - 首次安装、升级或修改 `client.js` 后，对话卡片需要刷新一次浏览器页面；Host 工具无需刷新。
 - 修改 `index.js` / `lib/**` 后不会自动重载：在「插件」页把 bundle 行 `dsh-icp` **禁用再启用**，或重启 DSH。
-- 卸载：在「插件」页移除，或 `plugin_manager(action: "remove_bundle", target: "dsh-icp-query")`；本地 clone 目录不会被删除。
+- 卸载：在「插件」页找到本插件，点「卸载」；本地 clone 目录不会被删除。
 
 ## 兼容性
 
