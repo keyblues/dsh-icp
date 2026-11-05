@@ -1,7 +1,6 @@
 # ICP 备案查询 · DSH 插件
 
 [![npm version](https://img.shields.io/npm/v/dsh-icp-query?style=flat-square)](https://www.npmjs.com/package/dsh-icp-query)
-[![npm downloads](https://img.shields.io/npm/dw/dsh-icp-query?style=flat-square)](https://www.npmjs.com/package/dsh-icp-query)
 [![DSH Plugin](https://img.shields.io/badge/DSH-Plugin-4c6ef5?style=flat-square)](#)
 [![DeepSeek Harness](https://img.shields.io/badge/DeepSeek-Harness-5b6bff?style=flat-square)](https://github.com/deepseek-ai/deepseek-harness)
 [![License](https://img.shields.io/badge/license-MIT-green?style=flat-square)](LICENSE)
