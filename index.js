@@ -211,7 +211,7 @@ function typesSnapshot(config) {
     count: types.length,
     types,
     endpoint: ICP_ENDPOINT,
-    note: '直连工信部官方接口，无需 API Key。官方限制访问频率，请勿并发或高频调用。',
+    note: '直连官方接口，无需 API Key；请勿高频调用。',
     config: {
       captcha_max_attempts: config.captchaMaxAttempts,
       timeout_ms: config.timeoutMs,
@@ -297,13 +297,10 @@ function typesCardMeta(value) {
 function buildTools(config) {
   const client = new IcpClient(config);
   const typeKeys = Object.keys(ICP_TYPES);
-  const typeSummary = typeKeys.map((key) => `${key} ${ICP_TYPES[key].label}`).join('、');
 
   const queryTool = {
     name: 'icp_query',
-    description:
-      '查询工信部 ICP 备案。支持网站、APP、小程序、快应用四类备案，以及对应的四类违法违规黑名单；' +
-      '返回备案主体、备案号、审核时间与应用详情等记录。',
+    description: '查询工信部 ICP 备案。',
     parameters: {
       type: 'object',
       additionalProperties: false,
@@ -311,7 +308,7 @@ function buildTools(config) {
         type: {
           type: 'string',
           enum: typeKeys,
-          description: `查询类型：${typeSummary}。`,
+          description: 'web 网站、app APP、mapp 小程序、kapp 快应用；bweb/bapp/bmapp/bkapp 为对应黑名单。',
         },
         search: {
           type: 'string',
@@ -319,11 +316,11 @@ function buildTools(config) {
         },
         page_num: {
           type: 'integer',
-          description: '页码，从 1 开始，最大 10000；黑名单类型忽略。',
+          description: '页码，从 1 开始；黑名单忽略。',
         },
         page_size: {
           type: 'integer',
-          description: '每页条数，默认 10，上限为插件配置的 maxPageSize（默认 10，最大 26）；黑名单类型忽略。',
+          description: '每页条数，默认 10；黑名单忽略。',
         },
       },
       required: ['type', 'search'],
@@ -399,7 +396,7 @@ function buildTools(config) {
 
   const typesTool = {
     name: 'icp_query_types',
-    description: '列出 ICP 备案查询支持的类型、各类型 search 可填内容与当前生效配置；不确定该用哪种类型时先调用本工具。',
+    description: '列出备案查询类型与当前配置。',
     parameters: {
       type: 'object',
       additionalProperties: false,

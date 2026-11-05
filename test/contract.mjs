@@ -51,13 +51,12 @@ check(
   String(queryTool?.parameters?.properties?.type?.enum?.length),
 );
 check(
-  'page_num documents its 10000 cap',
-  String(queryTool?.parameters?.properties?.page_num?.description ?? '').includes('10000'),
+  'page_num is 1-based',
+  String(queryTool?.parameters?.properties?.page_num?.description ?? '').includes('从 1 开始'),
 );
 check(
-  'page_size documents the maxPageSize cap',
-  /maxPageSize/.test(String(queryTool?.parameters?.properties?.page_size?.description ?? '')) &&
-    String(queryTool?.parameters?.properties?.page_size?.description ?? '').includes('26'),
+  'page_size documents the default',
+  String(queryTool?.parameters?.properties?.page_size?.description ?? '').includes('默认 10'),
 );
 
 const types = await typesTool.execute({}, { signal: new AbortController().signal });
@@ -67,8 +66,8 @@ check('types text lists every type', types.types.every((item) => typesText.inclu
 check('types text shows effective config', typesText.includes('当前生效配置') && typesText.includes('验证码最多尝试'));
 check('types note states no API key', typeof types.note === 'string' && types.note.includes('API Key'));
 check(
-  'query description names the filing types',
-  ['网站', 'APP', '小程序', '快应用', '黑名单'].every((word) => String(queryTool.description).includes(word)),
+  'query description states the purpose',
+  ['工信部', 'ICP', '备案'].every((word) => String(queryTool.description).includes(word)),
 );
 check('query description stays short', String(queryTool.description).length < 400, `${String(queryTool.description).length} chars`);
 

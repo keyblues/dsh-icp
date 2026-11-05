@@ -82,11 +82,11 @@ git clone https://github.com/keyblues/dsh-icp.git
 
 ### `icp_query`
 
-查询工信部 ICP 备案。支持网站、APP、小程序、快应用四类备案，以及对应的四类违法违规黑名单；返回备案主体、备案号、审核时间与应用详情等记录。
+查询工信部 ICP 备案（网站、APP、小程序、快应用及四类违法违规黑名单）。
 
 | 参数 | 类型 | 必填 | 说明 |
 |---|---|---|---|
-| `type` | string（枚举） | 是 | 查询类型：web 网站备案、app APP 备案、mapp 小程序备案、kapp 快应用备案、bweb 违法违规网站、bapp 违法违规 APP、bmapp 违法违规小程序、bkapp 违法违规快应用。 |
+| `type` | string（枚举） | 是 | 查询类型：web 网站、app APP、mapp 小程序、kapp 快应用；bweb、bapp、bmapp、bkapp 为对应黑名单。 |
 | `search` | string | 是 | 域名、主办单位名称、备案号或应用名称。 |
 | `page_num` | integer | 否 | 页码，从 1 开始，最大 10000；黑名单类型忽略。 |
 | `page_size` | integer | 否 | 每页条数，默认 10，上限为插件配置的 `maxPageSize`（默认 10，最大 26）；黑名单类型忽略。 |
@@ -108,7 +108,7 @@ git clone https://github.com/keyblues/dsh-icp.git
 
 ### `icp_query_types`
 
-无参数（`{}`）。列出 ICP 备案查询支持的类型、各类型 search 可填内容与当前生效配置；不确定该用哪种类型时先调用本工具。
+无参数（`{}`）。列出 ICP 备案查询支持的类型与当前配置。
 
 | 字段 | 类型 | 说明 |
 |---|---|---|
