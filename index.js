@@ -44,6 +44,9 @@ const RECORD_FIELDS = [
   ['title', '标题'],
   ['blackListLevel', '威胁等级'],
 ];
+const RECORD_HEAD_FIELDS = ['domain', 'domainName', 'serviceName', 'unitName', 'title'];
+const CARD_ROW_LIMIT = 10;
+const CARD_META_MAX_BYTES = 8000;
 
 /**
  * Clamp an unknown value into an integer range.
@@ -54,6 +57,7 @@ const RECORD_FIELDS = [
  * @returns {number} the clamped integer.
  */
 function clampInteger(value, fallback, min, max) {
+  if (typeof value === 'string' && value.trim() === '') return fallback;
   const parsed = typeof value === 'string' ? Number(value) : value;
   if (typeof parsed !== 'number' || !Number.isFinite(parsed)) return fallback;
   return Math.min(max, Math.max(min, Math.trunc(parsed)));
@@ -71,7 +75,7 @@ function normalizeConfig(raw) {
     timeoutMs: clampInteger(config.timeoutMs, DEFAULTS.timeoutMs, 5000, 120000),
     maxPageSize: clampInteger(config.maxPageSize, DEFAULTS.maxPageSize, 1, 26),
     detailConcurrency: clampInteger(config.detailConcurrency, DEFAULTS.detailConcurrency, 1, 10),
-    includeDetails: config.includeDetails !== false,
+    includeDetails: typeof config.includeDetails === 'boolean' ? config.includeDetails : DEFAULTS.includeDetails,
   };
 }
 
@@ -83,11 +87,11 @@ function normalizeConfig(raw) {
 function printable(value) {
   if (typeof value === 'string') return value;
   if (value === null || value === undefined) return '';
-  if (typeof value === 'number' || typeof value === 'boolean') return String(value);
+  if (typeof value === 'number' || typeof value === 'boolean' || typeof value === 'bigint') return String(value);
   try {
-    return JSON.stringify(value);
+    return JSON.stringify(value) ?? '';
   } catch {
-    return String(value);
+    return '';
   }
 }
 
@@ -99,22 +103,20 @@ function printable(value) {
  */
 function clipText(value, max = 200) {
   const text = printable(value).trim();
-  if (text === '') return '';
-  const chars = Array.from(text);
-  return chars.length <= max ? text : `${chars.slice(0, max - 1).join('')}…`;
+  if (text.length <= max) return text;
+  let end = 0;
+  let count = 0;
+  for (const character of text) {
+    count += 1;
+    if (count === max) return end + character.length < text.length ? `${text.slice(0, end)}…` : text;
+    end += character.length;
+  }
+  return text;
 }
 
-/**
- * Primary display name of one filing record.
- * @param {Record<string, any>} row - upstream record.
- * @returns {string} domain / service name / unit name, or ''.
- */
-function recordHead(row) {
-  for (const key of ['domain', 'domainName', 'serviceName', 'unitName', 'title']) {
-    const text = printable(row[key]).trim();
-    if (text !== '') return text;
-  }
-  return '';
+/** Keep fields in the model-facing summary on one line. */
+function clipLine(value, max) {
+  return clipText(value, max).replace(/[\r\n\u2028\u2029]+/gu, ' ');
 }
 
 /**
@@ -125,20 +127,26 @@ function recordHead(row) {
  */
 function recordLine(row) {
   if (row === null || typeof row !== 'object') return '';
-  const head = clipText(recordHead(row), 300);
-  const seen = new Set(head === '' ? [] : [head]);
-  const seenLabels = new Set();
+  let headKey;
   const parts = [];
+  for (const key of RECORD_HEAD_FIELDS) {
+    const text = clipLine(row[key], 300);
+    if (text === '') continue;
+    headKey = key;
+    parts.push(text);
+    break;
+  }
+  const seen = new Set(parts);
+  const seenLabels = new Set();
   for (const [key, label] of RECORD_FIELDS) {
-    // Clamp every field: upstream values are normally short, but a broken or
-    // hostile response must not be able to flood the model-facing text.
-    const text = clipText(row[key], 300);
+    if (key === headKey) continue;
+    const text = clipLine(row[key], 300);
     if (text === '' || seen.has(text) || seenLabels.has(label)) continue;
     seen.add(text);
     seenLabels.add(label);
     parts.push(`${label}=${text}`);
   }
-  return [head, ...parts].filter((part) => part !== '').join(' | ');
+  return parts.join(' | ');
 }
 
 /**
@@ -148,7 +156,7 @@ function recordLine(row) {
  */
 function renderQuery(value) {
   const lines = [
-    `ICP 备案 · ${clipText(value.label, 40)}（${clipText(value.type, 20)}）· ${clipText(value.search, 200)}`,
+    `ICP 备案 · ${clipLine(value.label, 40)}（${clipLine(value.type, 20)}）· ${clipLine(value.search, 200)}`,
   ];
   if (value.pageSize > 0) {
     lines.push(
@@ -259,17 +267,22 @@ function queryCardMeta(value) {
     detailsFetched: value.detailsFetched === true,
     elapsedMs: value.elapsedMs,
     blacklist: !(value.pageSize > 0),
-    rows: rows.slice(0, 10).map(cardRow),
-    rowsTruncated: rows.length > 10,
+    rows: [],
+    rowsTruncated: false,
   };
   const message = clipText(value.message, 300);
   if (message !== '') meta.message = message;
-  // Hard cap the durable payload: a hostile 26-row page must not grow the
-  // session log without bound (typical meta is ~1 KB, this cap is ~8 KB).
-  while (meta.rows.length > 0 && JSON.stringify(meta).length > 8000) {
-    meta.rows.pop();
-    meta.rowsTruncated = true;
+  // The empty array already accounts for its brackets. Each preview row adds
+  // its serialized UTF-8 bytes and a comma if another row precedes it.
+  let bytes = Buffer.byteLength(JSON.stringify(meta));
+  for (const row of rows.slice(0, CARD_ROW_LIMIT)) {
+    const preview = cardRow(row);
+    const rowBytes = Buffer.byteLength(JSON.stringify(preview)) + (meta.rows.length === 0 ? 0 : 1);
+    if (bytes + rowBytes > CARD_META_MAX_BYTES) break;
+    meta.rows.push(preview);
+    bytes += rowBytes;
   }
+  meta.rowsTruncated = meta.rows.length < rows.length;
   return meta;
 }
 
@@ -376,15 +389,14 @@ function buildTools(config) {
     isConcurrencySafe: () => false,
     async execute(args, exec) {
       const type = typeof args?.type === 'string' ? args.type.trim() : '';
-      const spec = ICP_TYPES[type];
-      if (spec === undefined) {
+      if (!Object.hasOwn(ICP_TYPES, type)) {
         throw new Error(`不支持的 type“${type}”；可取值：${typeKeys.join('、')}。`);
       }
       const search = typeof args?.search === 'string' ? args.search.trim() : '';
       if (search === '') {
         throw new Error('search 不能为空：请传域名、主办单位名称、备案号或应用名称。');
       }
-      const blacklist = spec.blacklist === true;
+      const blacklist = ICP_TYPES[type].blacklist === true;
       const pageNum = blacklist ? 1 : clampInteger(args?.page_num, 1, 1, 10000);
       const defaultPageSize = Math.min(10, config.maxPageSize);
       const pageSize = blacklist

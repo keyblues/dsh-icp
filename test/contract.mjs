@@ -73,10 +73,12 @@ check('query description stays short', String(queryTool.description).length < 40
 
 for (const [args, expected] of [
   [{ type: 'nope', search: 'x' }, '不支持的 type'],
+  [{ type: 'constructor', search: 'x' }, '不支持的 type'],
+  [{ type: '__proto__', search: 'x' }, '不支持的 type'],
   [{ type: 'web', search: '  ' }, 'search 不能为空'],
 ]) {
   try {
-    await queryTool.execute(args, { signal: new AbortController().signal });
+    await queryTool.execute(args, { signal: AbortSignal.abort() });
     check(`rejects ${JSON.stringify(args)}`, false, 'no error thrown');
   } catch (error) {
     check(`rejects ${JSON.stringify(args)}`, String(error.message).includes(expected), error.message);
@@ -102,10 +104,43 @@ const sampleText = queryTool.output.render({}, sample)[0].text;
 check('render shows pagination', sampleText.includes('568 页') && sampleText.includes('下一页：page_num=3'));
 check('render shows row fields', sampleText.includes('北京百度网讯科技有限公司'));
 
+const unicodeName = '🧾'.repeat(300);
+const unicodeText = queryTool.output.render({}, {
+  ...sample,
+  rowCount: 2,
+  rows: [
+    { domain: `${unicodeName}x`, unitName: '备案\r\n单位\u2028分部' },
+    { domain: unicodeName },
+  ],
+})[0].text;
+check(
+  'render clips Unicode only past the code point limit',
+  unicodeText.includes(`1. ${'🧾'.repeat(299)}…`) && unicodeText.includes(`\n2. ${unicodeName}\n`),
+);
+check('render keeps each record on one line', unicodeText.includes('主办单位=备案 单位 分部'));
+
 const meta = queryTool.output.presentationMeta({}, sample);
 check('meta carries the card facts', meta.kind === 'icp' && meta.type === 'web' && meta.total === 1702);
 check('meta keeps compact rows', Array.isArray(meta.rows) && meta.rows.length === 1 && meta.rows[0].unitName === '北京百度网讯科技有限公司');
 check('meta drops verbose ids', meta.rows[0].domainId === undefined);
+
+const longField = '备案🧾'.repeat(50);
+const longRows = Array.from({ length: 12 }, (_, index) => ({
+  domain: `filing-${index}.example`,
+  unitName: longField,
+  serviceName: longField,
+  mainLicence: longField,
+  serviceLicence: longField,
+}));
+const preview = queryTool.output.presentationMeta({}, { ...sample, rowCount: longRows.length, rows: longRows });
+check(
+  'meta keeps a prefix of records within 8000 UTF-8 bytes',
+  Buffer.byteLength(JSON.stringify(preview)) <= 8000 &&
+    preview.rowsTruncated &&
+    preview.rows.length > 0 &&
+    preview.rows.length < 10 &&
+    preview.rows.every((row, index) => row.domain === longRows[index].domain),
+);
 
 const typesMeta = typesTool.output.presentationMeta({}, types);
 check('types meta carries the catalog', typesMeta.kind === 'icp-types' && typesMeta.count === 8 && Array.isArray(typesMeta.types));

@@ -45,7 +45,7 @@ window.__ModuleLoader__.load({
         'tool.level': 'threat level',
         'tool.detailsFetched': 'App / mini-program details merged from the official detail endpoint.',
         'tool.noRecords': 'No filing records found.',
-        'tool.rowsTruncated': 'Only the first 10 records are kept in the card; the full list is in the result.',
+        'tool.rowsTruncated': 'This preview shows {count} records from this page. See the query result for the full list.',
         'tool.spilled': 'The full result was spilled to disk; this card shows the durable preview.',
         'tool.output': 'Output',
         'tool.errorOutput': 'Error',
@@ -87,7 +87,7 @@ window.__ModuleLoader__.load({
         'tool.level': '威胁等级',
         'tool.detailsFetched': '已按官方详情接口补全 APP / 小程序 / 快应用详情。',
         'tool.noRecords': '未查询到备案记录。',
-        'tool.rowsTruncated': '卡片只保留前 10 条记录，完整列表见查询结果。',
+        'tool.rowsTruncated': '卡片显示本页的 {count} 条记录，完整列表见查询结果。',
         'tool.spilled': '结果过大已落盘（spill），卡片显示的是持久化预览。',
         'tool.output': '输出',
         'tool.errorOutput': '错误',
@@ -153,17 +153,28 @@ window.__ModuleLoader__.load({
     /* -------------------------------------------------------------- */
 
     /** Shorten a display string to `max` code points. */
-    function clip(value, max) {
-      const text = value === null || value === undefined ? '' : String(value);
-      const chars = Array.from(text);
-      return chars.length <= max ? text : `${chars.slice(0, max - 1).join('')}…`;
+    function clip(text, max) {
+      if (text.length <= max) return text;
+      let end = 0;
+      let count = 0;
+      for (const character of text) {
+        count += 1;
+        if (count === max) return end + character.length < text.length ? `${text.slice(0, end)}…` : text;
+        end += character.length;
+      }
+      return text;
+    }
+
+    /** Display scalar values from saved metadata, including older numeric fields. */
+    function scalarText(value) {
+      if (typeof value === 'string') return value.trim();
+      if (typeof value === 'number' || typeof value === 'boolean') return String(value);
+      return '';
     }
 
     /** Printable cell: never `undefined`/`null`/empty. */
     function cellValue(value) {
-      if (value === null || value === undefined) return '—';
-      const text = String(value).trim();
-      return text === '' ? '—' : text;
+      return scalarText(value) || '—';
     }
 
     /** Parse the model arguments of one tool block at any call stage. */
@@ -179,29 +190,28 @@ window.__ModuleLoader__.load({
       }
     }
 
+    function isTextBlock(entry) {
+      return entry?.type === 'text' && typeof entry.text === 'string';
+    }
+
     /** Join every text block of one settled tool result. */
     function blockText(block) {
-      const content = block !== null && block !== undefined && Array.isArray(block.content) ? block.content : [];
-      return content
-        .filter((entry) => entry !== null && typeof entry === 'object' && entry.type === 'text' && typeof entry.text === 'string')
-        .map((entry) => entry.text)
-        .join('\n');
+      const content = Array.isArray(block?.content) ? block.content : [];
+      return content.filter(isTextBlock).map((entry) => entry.text).join('\n');
     }
 
     /** Durable card facts persisted as `result.meta` by `output.presentationMeta`. */
     function blockMeta(block) {
-      const meta = block === null || block === undefined ? undefined : block.meta;
+      const meta = block?.meta;
       return meta !== null && typeof meta === 'object' && !Array.isArray(meta) && typeof meta.kind === 'string' ? meta : null;
     }
 
     /** Whether the settled content is a spill locator rather than the render body. */
     function contentSpilled(block) {
-      return /Full formatted result stored at|结果已落盘/u.test(blockText(block));
-    }
-
-    /** One failed-call message without the `Error: ` envelope. */
-    function blockError(block) {
-      return blockText(block).replace(/^Error:\s*/u, '');
+      return (
+        Array.isArray(block?.content) &&
+        block.content.some((entry) => isTextBlock(entry) && /Full formatted result stored at|结果已落盘/u.test(entry.text))
+      );
     }
 
     /* -------------------------------------------------------------- */
@@ -383,15 +393,11 @@ window.__ModuleLoader__.load({
     }
 
     /** `label · value` summary used by the running head from parsed arguments. */
-    function argsSummary(t, toolName, args) {
-      if (args === null) return '';
-      if (toolName === 'icp_query') {
-        const search = typeof args.search === 'string' ? args.search.trim() : '';
-        const type = typeof args.type === 'string' ? args.type : '';
-        if (search === '' && type === '') return '';
-        return clip(type === '' ? search : `${type} · ${search}`, 72);
-      }
-      return '';
+    function argsSummary(toolName, args) {
+      if (toolName !== 'icp_query' || args === null) return '';
+      const search = typeof args.search === 'string' ? args.search.trim() : '';
+      const type = typeof args.type === 'string' ? args.type.trim() : '';
+      return clip([type, search].filter(Boolean).join(' · '), 72);
     }
 
     /* -------------------------------------------------------------- */
@@ -400,19 +406,15 @@ window.__ModuleLoader__.load({
 
     /** Collapsed-head facts of one settled `icp_query` card. */
     function queryHead(t, model) {
-      const label = typeof model.label === 'string' && model.label !== '' ? model.label : String(model.type ?? '');
-      const search = typeof model.search === 'string' ? model.search : '';
+      const label = scalarText(model.label) || scalarText(model.type);
+      const search = scalarText(model.search);
       const rows = Array.isArray(model.rows) ? model.rows : [];
       const blacklist = model.blacklist === true || model.pageSize === 0;
-      const summary = search === '' ? label : `${label} · ${search}`;
+      const summary = [label, search].filter(Boolean).join(' · ');
       if (blacklist) {
-        const first = rows[0];
-        const level = first !== null && typeof first === 'object' ? first.blackListLevel : undefined;
-        const suffix =
-          level === undefined || level === null || String(level) === ''
-            ? t('tool.blacklist')
-            : `${t('tool.level')} ${String(level)}`;
-        return { summary: clip(summary, 72), suffix };
+        const level = scalarText(rows[0]?.blackListLevel);
+        const suffix = level === '' ? t('tool.blacklist') : `${t('tool.level')} ${level}`;
+        return { summary: clip(summary, 72), suffix: clip(suffix, 48) };
       }
       const total = Number.isFinite(model.total) ? model.total : null;
       const count = total !== null ? total : Number.isFinite(model.rowCount) ? model.rowCount : rows.length;
@@ -429,15 +431,15 @@ window.__ModuleLoader__.load({
 
     /** Body of one settled `icp_query` call: request facts + filing records. */
     function queryBody(t, model) {
-      const rows = Array.isArray(model.rows) ? model.rows : [];
+      const rows = model.rows.filter((row) => row !== null && typeof row === 'object' && !Array.isArray(row));
       const blacklist = model.blacklist === true || model.pageSize === 0;
       const paging = blacklist
         ? t('tool.blacklistApi')
         : t('tool.pagingValue', {
-            page: model.pageNum,
-            pages: model.pages,
-            size: model.pageSize,
-            total: model.total,
+            page: cellValue(model.pageNum),
+            pages: cellValue(model.pages),
+            size: cellValue(model.pageSize),
+            total: cellValue(model.total),
           });
       const items = [
         [
@@ -451,16 +453,15 @@ window.__ModuleLoader__.load({
           model.detailsFetched === true ? detailDescription(t('tool.detailsFetched')) : null,
         ],
       ];
-      for (const row of rows) {
-        const target = row !== null && typeof row === 'object' ? row : {};
-        const head =
-          target.domain ?? target.domainName ?? target.serviceName ?? target.unitName ?? target.title ?? '';
+      for (const target of rows) {
+        const head = [target.domain, target.domainName, target.serviceName, target.unitName, target.title]
+          .map(scalarText)
+          .find(Boolean);
+        const level = scalarText(target.blackListLevel);
         const state = blacklist
           ? [
-              typeof target.blackListLevel !== 'undefined' && String(target.blackListLevel) !== ''
-                ? `${t('tool.level')}: ${target.blackListLevel}`
-                : '',
-              typeof target.title === 'string' && target.title !== '' ? target.title : '',
+              level === '' ? '' : `${t('tool.level')}: ${level}`,
+              scalarText(target.title),
             ]
               .filter((part) => part !== '')
               .join(' · ')
@@ -479,16 +480,19 @@ window.__ModuleLoader__.load({
               { label: t('tool.serviceLicence'), value: cellValue(target.serviceLicence) },
               { label: t('tool.recordTime'), value: cellValue(target.updateRecordTime) },
             ];
-        items.push([detailHeading(cellValue(head)), state === '' ? null : detailSubtitle(state), fieldList(fields)]);
+        items.push([detailHeading(head ?? '—'), state === '' ? null : detailSubtitle(state), fieldList(fields)]);
       }
-      if (rows.length === 0) items.push([detailDescription(t('tool.noRecords'))]);
-      if (model.rowsTruncated === true) items.push([detailDescription(t('tool.rowsTruncated'))]);
+      if (model.rows.length === 0 && model.rowsTruncated !== true && !model.message) {
+        items.push([detailDescription(t('tool.noRecords'))]);
+      }
+      if (model.rowsTruncated === true) {
+        items.push([detailDescription(t('tool.rowsTruncated', { count: rows.length }))]);
+      }
       return [detailsCard(items)];
     }
 
     /** Body of one settled `icp_query_types` call: catalog plus effective config. */
     function typesBody(t, model) {
-      const types = Array.isArray(model.types) ? model.types : [];
       const config = model.config !== null && typeof model.config === 'object' ? model.config : {};
       const items = [
         [
@@ -508,8 +512,8 @@ window.__ModuleLoader__.load({
           typeof model.note === 'string' && model.note !== '' ? detailDescription(model.note) : null,
         ],
       ];
-      for (const entry of types) {
-        const item = entry !== null && typeof entry === 'object' ? entry : {};
+      for (const item of model.types) {
+        if (item === null || typeof item !== 'object' || Array.isArray(item)) continue;
         items.push([
           detailHeading(`${cellValue(item.type)} · ${cellValue(item.label)}`),
           detailSubtitle(
@@ -530,10 +534,11 @@ window.__ModuleLoader__.load({
           { label: t('tool.type'), value: cellValue(request.type) },
           { label: t('tool.keyword'), value: cellValue(request.search), mono: true },
         ];
-        if (typeof request.page_num !== 'undefined' || typeof request.page_size !== 'undefined') {
+        const paging = [request.page_num, request.page_size].map(scalarText).filter(Boolean).join(' / ');
+        if (paging !== '') {
           fields.push({
             label: t('tool.paging'),
-            value: [request.page_num, request.page_size].filter((part) => part !== undefined).join(' / '),
+            value: paging,
           });
         }
         return [detailsCard([[fieldList(fields)]])];
@@ -550,54 +555,48 @@ window.__ModuleLoader__.load({
      * (glyph, title, separator, summary, stat suffix) and an expandable body.
      */
     function IcpToolRow(props) {
-      const bound = props === null || props === undefined ? undefined : props.t;
+      const { t: bound, block, phase, useDisclosure } = props ?? {};
       const t = React.useMemo(() => makeTranslator(bound), [bound]);
-      const block = props === null || props === undefined ? undefined : props.block;
-      const phase = props === null || props === undefined ? undefined : props.phase;
-      const toolName = props === null || props === undefined || typeof props.toolName !== 'string' ? '' : props.toolName;
+      const toolName = typeof props?.toolName === 'string' ? props.toolName : '';
+      const isQuery = toolName === 'icp_query';
       const preparing = phase === 'preparing';
       const pending = phase !== 'result';
-      const interrupted = !pending && block !== null && block !== undefined && block.error?.code === 'interrupted';
-      const failed = !pending && block !== null && block !== undefined && block.isError === true && !interrupted;
-      const args = React.useMemo(() => blockArgs(block), [block]);
-      const meta = React.useMemo(() => (pending || failed || interrupted ? null : blockMeta(block)), [block, pending, failed, interrupted]);
-      const model = meta !== null && (meta.kind === 'icp' || meta.kind === 'icp-types') ? meta : null;
-      const spilled = !pending && !failed && model !== null && contentSpilled(block);
-      // Results written before 1.1.0 carry head facts only (no `rows` array):
-      // their body must fall back to the settled text, not claim "no records".
-      const legacy = !pending && !failed && !interrupted && model !== null && toolName === 'icp_query' && !Array.isArray(model.rows);
-
-      const head = React.useMemo(() => {
-        if (pending) {
-          const hint = argsSummary(t, toolName, args);
-          return { summary: hint === '' ? t(preparing ? 'tool.preparing' : 'tool.running') : hint, suffix: '' };
-        }
-        if (interrupted) {
-          const hint = argsSummary(t, toolName, args);
-          return { summary: hint === '' ? t('tool.stopped') : hint, suffix: '' };
-        }
-        if (failed) return { summary: clip(blockError(block), 120), suffix: '' };
-        if (model === null) return { summary: clip(blockText(block), 140), suffix: '' };
-        return toolName === 'icp_query' ? queryHead(t, model) : typesHead(t, model);
-      }, [pending, preparing, interrupted, failed, args, model, t, toolName, block]);
+      const interrupted = !pending && block?.error?.code === 'interrupted';
+      const failed = !pending && !interrupted && block?.isError === true;
+      const args = React.useMemo(() => (pending || interrupted ? blockArgs(block) : null), [block, pending, interrupted]);
+      const meta = pending || failed || interrupted ? null : blockMeta(block);
+      const model = meta?.kind === (isQuery ? 'icp' : 'icp-types') ? meta : null;
+      const hasDetails = model !== null && Array.isArray(isQuery ? model.rows : model.types);
 
       // One stable disclosure Hook per mounted call: the conversation owner's
       // Hook when it supplies one, local state otherwise.
       const disclosureHook = React.useRef(null);
       if (disclosureHook.current === null) {
-        const ownerHook =
-          props !== null && props !== undefined && typeof props.useDisclosure === 'function' ? props.useDisclosure : null;
         disclosureHook.current =
-          ownerHook === null
-            ? function useLocalDisclosure() {
+          typeof useDisclosure === 'function'
+            ? useDisclosure
+            : function useLocalDisclosure() {
                 const [expanded, setExpanded] = React.useState(false);
                 return { expanded, toggle: () => setExpanded((current) => !current) };
-              }
-            : ownerHook;
+              };
       }
       const disclosure = disclosureHook.current();
       const expandable = !preparing;
       const expanded = expandable && disclosure.expanded === true;
+      // Older results may have enough metadata for the head but only text for the body.
+      const needsText = !pending && !interrupted && (model === null || (expanded && !hasDetails));
+      const output = needsText ? blockText(block) : '';
+      const text = failed ? output.replace(/^Error:\s*/u, '') : output;
+      const head = React.useMemo(() => {
+        if (pending || interrupted) {
+          const hint = argsSummary(toolName, args);
+          const status = interrupted ? 'tool.stopped' : preparing ? 'tool.preparing' : 'tool.running';
+          return { summary: hint === '' ? t(status) : hint, suffix: '' };
+        }
+        if (failed) return { summary: clip(text, 120), suffix: '' };
+        if (model === null) return { summary: clip(text, 140), suffix: '' };
+        return isQuery ? queryHead(t, model) : typesHead(t, model);
+      }, [pending, preparing, interrupted, failed, args, model, t, toolName, isQuery, text]);
       const toggle = () => {
         if (typeof disclosure.toggle === 'function') disclosure.toggle();
       };
@@ -633,16 +632,12 @@ window.__ModuleLoader__.load({
       let bodyNodes = [];
       if (expanded) {
         if (interrupted) bodyNodes = [cardNote(t('tool.stoppedNote'), 'warn')];
-        else if (failed) bodyNodes = [ioCard(t('tool.errorOutput'), clip(blockError(block), 1600), true)];
+        else if (failed) bodyNodes = [ioCard(t('tool.errorOutput'), clip(text, 1600), true)];
         else if (pending) bodyNodes = pendingBody(t, toolName, args);
-        else if (legacy) {
-          // Results written before 1.1.0 carry only the old head facts, so the
-          // body falls back to the settled text instead of claiming "no records".
-          bodyNodes = [ioCard(t('tool.output'), clip(blockText(block), 1600), false)];
-        } else if (model !== null) {
-          bodyNodes = toolName === 'icp_query' ? queryBody(t, model) : typesBody(t, model);
-          if (spilled) bodyNodes.push(cardNote(t('tool.spilled'), 'warn'));
-        } else bodyNodes = [ioCard(t('tool.output'), clip(blockText(block), 1600), false)];
+        else if (hasDetails) {
+          bodyNodes = isQuery ? queryBody(t, model) : typesBody(t, model);
+          if (contentSpilled(block)) bodyNodes.push(cardNote(t('tool.spilled'), 'warn'));
+        } else bodyNodes = [ioCard(t('tool.output'), clip(text, 1600), false)];
       }
 
       return h(

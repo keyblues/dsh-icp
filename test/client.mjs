@@ -179,9 +179,32 @@ check('query card paging', queryText.includes('第 1 / 1 页'));
 
 // Collapsed: head only, no body rows.
 forceExpanded = false;
-const collapsedText = textOf(queryCard.component({ ...queryProps, useDisclosure: () => ({ expanded: false }) }));
+let contentReads = 0;
+const collapsedBlock = {
+  ...queryBlock,
+  get content() {
+    contentReads += 1;
+    return queryBlock.content;
+  },
+};
+const collapsedText = textOf(queryCard.component({ ...queryProps, block: collapsedBlock }));
 check('collapsed card hides body', !collapsedText.includes('北京百度网讯科技有限公司') && collapsedText.includes('baidu.com'));
+check('collapsed card with saved metadata skips the result text', contentReads === 0);
 forceExpanded = true;
+
+const previewText = textOf(queryCard.component({
+  ...queryProps,
+  block: {
+    ...queryBlock,
+    content: [{ type: 'text', text: '结果已落盘' }],
+    meta: { ...queryBlock.meta, rowCount: 3, rowsTruncated: true },
+  },
+}));
+check('saved preview reports the retained row count', previewText.includes('卡片显示本页的 1 条记录'));
+check(
+  'preview for a spilled result still renders its record',
+  previewText.includes('持久化预览') && previewText.includes('北京百度网讯科技有限公司'),
+);
 
 // Blacklist shape.
 const blackBlock = {
@@ -291,12 +314,33 @@ const malformedText = textOf(
       kind: 'result',
       isError: false,
       content: [{ type: 'text', text: 'x' }],
-      meta: { kind: 'icp', type: 'web', label: '网站备案', search: 'x', pageSize: 3, total: 1, rowCount: 1, rows: [null, 'x', 42] },
+      meta: {
+        ...queryBlock.meta,
+        type: { toString: null },
+        pageNum: { toString: null },
+        rows: [null, 'x', { domain: { toString: null }, domainName: 'legacy.example' }],
+      },
     },
     useDisclosure: () => ({ expanded: true, toggle() {} }),
   }),
 );
-check('malformed meta rows do not throw', malformedText.includes('ICP 备案查询'));
+check(
+  'malformed meta fields preserve valid row values',
+  malformedText.includes('legacy.example') && malformedText.includes('第 — / 1 页'),
+);
+
+for (const [card, meta] of [
+  [typesCard, { kind: 'icp-types', count: 8 }],
+  [queryCard, { kind: 'icp-types', types: [] }],
+]) {
+  const toolName = card.options.key;
+  const fallbackText = textOf(card.component({
+    ...queryProps,
+    toolName,
+    block: { ...queryBlock, meta, content: [{ type: 'text', text: '历史查询正文' }] },
+  }));
+  check(`${toolName} falls back to text when its detail metadata is unavailable`, fallbackText.includes('历史查询正文'));
+}
 
 const headOnlyText = textOf(
   queryCard.component({

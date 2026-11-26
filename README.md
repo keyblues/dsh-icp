@@ -1,11 +1,13 @@
 # ICP 备案查询 · DSH 插件
 
+![ICP 备案查询 · dsh-icp-query](docs/readme-cover.jpg)
+
 [![npm version](https://img.shields.io/npm/v/dsh-icp-query?style=flat-square)](https://www.npmjs.com/package/dsh-icp-query)
 [![DSH Plugin](https://img.shields.io/badge/DSH-Plugin-4c6ef5?style=flat-square)](#)
 [![DeepSeek Harness](https://img.shields.io/badge/DeepSeek-Harness-5b6bff?style=flat-square)](https://github.com/deepseek-ai/deepseek-harness)
 [![License](https://img.shields.io/badge/license-MIT-green?style=flat-square)](LICENSE)
 [![Node](https://img.shields.io/badge/node-%3E%3D20-339933?style=flat-square)](package.json)
-[![DSH](https://img.shields.io/badge/DSH-0.2.1--rc.3%2B-4D6BFE?style=flat-square)](#兼容性)
+[![DSH](https://img.shields.io/badge/DSH-0.1.7--rc.1%2B-4D6BFE?style=flat-square)](#兼容性)
 [![GitHub stars](https://img.shields.io/github/stars/keyblues/dsh-icp?style=flat-square)](https://github.com/keyblues/dsh-icp/stargazers)
 
 > **English** — MIIT ICP filing lookup for DeepSeek Harness (DSH). The plugin queries the official MIIT filing service directly: it obtains an anonymous auth token and solves the slider captcha locally, with no API key, no external service and zero npm dependencies. It registers two agent tools, `icp_query` (websites, apps, mini programs, quick apps and the four violation blacklists) and `icp_query_types`; results render as official-style conversation cards.
@@ -63,7 +65,7 @@ git clone https://github.com/keyblues/dsh-icp.git
 
 ### 安装后、更新与卸载
 
-- bundle 行 id 为 `dsh-icp`；npm 包名、Host 模块名与 Client 模块 id 为 `dsh-icp-query`；版本 `2.0.1`。
+- bundle 行 id 为 `dsh-icp`；npm 包名、Host 模块名与 Client 模块 id 为 `dsh-icp-query`；版本 `2.0.2`。
 - 首次安装、升级或修改 `client.js` 后，对话卡片需要刷新一次浏览器页面；Host 工具无需刷新。
 - 修改 `index.js` / `lib/**` 后不会自动重载：在「插件」页把 bundle 行 `dsh-icp` **禁用再启用**，或重启 DSH。
 - 卸载：在「插件」页找到本插件，点「卸载」；本地 clone 目录不会被删除。
@@ -73,7 +75,7 @@ git clone https://github.com/keyblues/dsh-icp.git
 | 项 | 要求 |
 |---|---|
 | Node.js | `>= 20` |
-| DSH | `>= 0.2.1-rc.3 < 0.3.0-0`（见 `package.json` 的 `engines.dsh`） |
+| DSH | `>= 0.1.7-rc.1 < 0.3.0-0`（见 `package.json` 的 `engines.dsh`） |
 | 平台 | macOS / Windows / Linux（纯 JS，无编译产物） |
 | 网络 | 需能直连 `hlwicpfwc.miit.gov.cn`（HTTPS） |
 | 凭据 | 无（匿名令牌仅保存在进程内存中） |
@@ -151,6 +153,8 @@ git clone https://github.com/keyblues/dsh-icp.git
 
 `client.js` 是 bundle 的 Client 半，向 `tool.call.toolview` 槽位注册两个按工具名分发的官方样式卡片：`icp_query` 的折叠头显示类型 / 关键词 / 条数与耗时，展开体显示分页与备案记录；`icp_query_types` 的折叠头只显示类型数量，展开体显示类型目录与当前生效配置。运行中、失败、被用户停止各有对应状态。卡片从 Host 写入的 `output.presentationMeta` 重绘，结果被 spill 或会话 fork 后仍能显示；旧结果没有卡片元数据时回退到文本输出。
 
+查询卡片最多预览当前页的前 10 条记录，持久化元数据上限为 8,000 UTF-8 字节。预览被截断时，卡片显示实际保留的记录数。
+
 > 修改 `client.js` 后需要刷新一次浏览器页面；卡片没有设置页，配置仍来自 profile 的 `cordis.patch.yml`。
 
 ## 实现与上游协议
@@ -206,7 +210,7 @@ node test/live-stability.mjs    # 实网：约 9 次边界探测
 
 | 文件 | 作用 |
 |---|---|
-| `package.json` | bundle 清单：npm 包名 `dsh-icp-query`、版本 2.0.1、`engines.dsh` 与客户端声明 |
+| `package.json` | bundle 清单：npm 包名 `dsh-icp-query`、版本 2.0.2、`engines.dsh` 与客户端声明 |
 | `index.js` | Host 半：注册两个工具、归一化配置、精简输出、写入卡片元数据 |
 | `client.js` | Client 半：向 `tool.call.toolview` 注册两张官方样式卡片 |
 | `cordis.patch.yml` | 插入 `- id: dsh-icp` 的 Host 行及默认 `config` |

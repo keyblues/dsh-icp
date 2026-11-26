@@ -751,6 +751,13 @@ await check('config: garbage values are clamped to safe defaults', () => {
   assert(config.includeDetails === true, 'includeDetails');
 });
 
+await check('config: blank values use defaults and numeric strings still work', () => {
+  const config = normalizeConfig({ timeoutMs: ' \t', maxPageSize: ' 8 ', includeDetails: false });
+  assert(config.timeoutMs === 30000, `timeout=${config.timeoutMs}`);
+  assert(config.maxPageSize === 8, `pageSize=${config.maxPageSize}`);
+  assert(config.includeDetails === false, 'includeDetails');
+});
+
 await check('catalog: unordered/odd config still renders all eight types', () => {
   const snapshot = typesSnapshot(normalizeConfig({ maxPageSize: 1 }));
   assert(snapshot.count === 8, `count=${snapshot.count}`);
